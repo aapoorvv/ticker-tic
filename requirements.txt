@@ -1,0 +1,7 @@
+streamlit
+altair<5
+numpy
+pandas
+plotly
+yfinance
+datetime
