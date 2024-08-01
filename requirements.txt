@@ -5,3 +5,5 @@ pandas
 plotly
 yfinance
 datetime
+matplotlib
+finplot

@@ -3,10 +3,12 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 import plotly.express as px
+import plotly.graph_objects as go
 import datetime
-import requests
+import matplotlib.pyplot as plt
 
-KEY = "OQ54ZUXF90F2KGHL"
+
+# Start date calculator
 def subtract_years(dt, years):
     try:
         dt = dt.replace(year=dt.year-years)
@@ -14,60 +16,109 @@ def subtract_years(dt, years):
         dt = dt.replace(year=dt.year-years, day=dt.day-1)
     return dt
 dt = subtract_years(datetime.datetime.now(),1)
-print(dt.date())
-
 
 stock = st.sidebar.text_input('Ticker',value="AAPL")
-stocks = yf.Ticker(stock)
+ticker = yf.Ticker(stock)
+st.title(stock+' Stock Dashboard')
+
+# Sidebar
 start_date = st.sidebar.date_input('Start Date',value=dt.date())
 end_date = st.sidebar.date_input('End Date')
-st.title(stock+' Stock Dashboard')
+
+
 data = yf.download(stock,start=start_date,end=end_date)
-fig = px.line(data, x = data.index, y = data['Adj Close'], title = stock)
-st.plotly_chart(fig)
-isin = st.sidebar.text(f"ISIN: {stocks.isin}")
-# st.write(stocks.info)
+
+line_chart,candlestick_chart= st.tabs(["Line Chart", "Candlestick Chart"])
+
+# Line chart
+with line_chart:
+    fig = px.line(data, x = data.index, y = data['Adj Close'], title = stock.upper())
+    st.plotly_chart(fig)    
+
+# Candle Stick chart
+with candlestick_chart:
+    interval = st.selectbox(
+    'Select Interval',
+    ('1d', '5d', '1wk', '1mo'),
+    index=1)
+    
+    ticker_history = ticker.history(interval=interval,period='1y')
+    fig = go.Figure(data=[go.Candlestick(x=data.index,
+                                        open=ticker_history['Open'],
+                                        high=ticker_history['High'],
+                                        low=ticker_history['Low'],
+                                        close=ticker_history['Close'],
+                                        increasing_line_color= '#00913a', decreasing_line_color= '#920809')])
+    fig.update_layout(xaxis_rangeslider_visible=True)
+    fig.update_layout(title=stock.upper())
+    st.plotly_chart(fig, theme='streamlit')
+
+# Tabs
 pricing_data,fundamental_data,news,ca,holding,recc= st.tabs(["Pricing Data", "Fundamentals","News" , "Corporate Actions","Shareholding", "Experts Recommedation"])
 
 with pricing_data:
     st.header = ('Price Movements')
-    data2 = data
-    data2['% Change'] = data['Adj Close'] / data['Adj Close'].shift(1)-1
-    data2.dropna(inplace = True)
-    st.write(data2.iloc[::-1])
-    annual_return = data2['% Change'].sum()*100
-    st.write('1 year Return is',annual_return,'%')
+    data_copy = data
+    data_copy['% Change'] = data['Adj Close'] / data['Adj Close'].shift(1)-1
+    data_copy.dropna(inplace = True)
+    data_df = pd.DataFrame(data_copy)
+    data_df.reset_index(inplace=True)
+    data_df['Date'] = data_df['Date'].dt.strftime('%Y/%m/%d')
+    blankIndex=[''] * len(data_df)
+    data_df.index=blankIndex
+    if '% Change' in data_df.columns:
+        del data_df['% Change']
+    st.write(data_df.iloc[::-1])
+    
+    #Last 1 Year Return
+    annual_return = data_copy['% Change'].sum()*100
+    ar = str("%.2f" % annual_return)
+    st.write('Last 1 Year Return - ',ar,'%')
+    
+    
     
     
 with fundamental_data:
-    st.subheader('Annual Income Statement')
-    ais = stocks.income_stmt
-    st.write(ais.iloc[::-1])
     
-    st.subheader('Quarterly Income Statement')
-    qis = stocks.quarterly_income_stmt
-    st.write(qis.iloc[::-1])
+    income,balance,cash= st.tabs(["Income Statement", "Balance Sheet", "Cashflow Statement"])
     
-    st.subheader('Annual Balance Sheet')
-    abs = stocks.balance_sheet
-    st.write(abs.iloc[::-1])
+    with income:
+        st.subheader('Annual Income Statement')
+        ais_df = pd.DataFrame(ticker.income_stmt)
+        ais_df.columns = ais_df.columns.strftime('%Y')
+        st.write(ais_df.iloc[::-1])
+        
+        st.subheader('Quarterly Income Statement')
+        qis_df = pd.DataFrame(ticker.quarterly_income_stmt)
+        qis_df.columns = qis_df.columns.strftime('%Y-%m')
+        st.write(qis_df.iloc[::-1])
     
-    st.subheader('Quarterly Balance Sheet')
-    qbs = stocks.quarterly_balance_sheet
-    st.write(qbs.iloc[::-1])
+    with balance:
+        st.subheader('Annual Balance Sheet')
+        abs_df = pd.DataFrame(ticker.balance_sheet)
+        abs_df.columns = abs_df.columns.strftime('%Y')
+        st.write(abs_df.iloc[::-1])
+        
+        st.subheader('Quarterly Balance Sheet')
+        qbs_df = pd.DataFrame(ticker.quarterly_balance_sheet)
+        qbs_df.columns = qbs_df.columns.strftime('%Y-%m')
+        st.write(qbs_df.iloc[::-1])
     
-    st.subheader('Annual Cashflow Statement')
-    acf = stocks.cash_flow
-    st.write(acf.iloc[::-1])
-    
-    st.subheader('Quarterly Cashflow Statement')
-    qcf = stocks.quarterly_cash_flow
-    st.write(qcf.iloc[::-1])
+    with cash:    
+        st.subheader('Annual Cashflow Statement')
+        acs_df = pd.DataFrame(ticker.cash_flow)
+        acs_df.columns = acs_df.columns.strftime('%Y')
+        st.write(acs_df.iloc[::-1])
+        
+        st.subheader('Quarterly Cashflow Statement')
+        qcs_df = pd.DataFrame(ticker.quarterly_cash_flow)
+        qcs_df.columns = qcs_df.columns.strftime('%Y-%m')
+        st.write(qcs_df.iloc[::-1])
        
 with news:
-    nd = stocks.news
+    news_data = ticker.news
     c = 1
-    for i in nd:
+    for i in news_data:
         h = f'{c}. '+i['title']
         st.subheader(h)
         st.write(f'By- {i["publisher"]}')
@@ -76,26 +127,86 @@ with news:
 
 
 with ca:
-    stocks = yf.Ticker(stock)
+    # Dividends
+    ticker = yf.Ticker(stock)
     st.subheader('Dividends')
-    dividend = stocks.dividends
-    st.write(dividend.iloc[::-1])
+    dividend = ticker.dividends
+    dividend_df = pd.DataFrame(dividend)
+    dividend_df.reset_index(inplace=True)
+    dividend_df['Date'] = dividend_df['Date'].dt.strftime('%Y/%m/%d')
+    blankIndex=[''] * len(dividend_df)
+    dividend_df.index=blankIndex
+    st.write(dividend_df.iloc[::-1].head(10))
+    
+    # Splits
     st.subheader('Splits')
-    split = stocks.splits
-    st.write(split.iloc[::-1])
+    split = ticker.splits
+    split_df = pd.DataFrame(split)
+    split_df.reset_index(inplace=True)
+    split_df['Date'] = split_df['Date'].dt.strftime('%Y/%m/%d')
+    blankIndex=[''] * len(split_df)
+    split_df.index=blankIndex
+    st.write(split_df.tail(10).iloc[::-1])
 
 with holding:
-    stocks = yf.Ticker(stock)
+    # Institutional Investors
+    ticker = yf.Ticker(stock)
     st.subheader("Institutional Investors")
-    st.write(stocks.institutional_holders) 
-    st.subheader("MF Investors")
-    st.write(stocks.mutualfund_holders) 
+    inst_hold_df = pd.DataFrame(ticker.institutional_holders)
+    inst_hold_df['Date Reported'] = inst_hold_df['Date Reported'].dt.strftime('%Y/%m/%d')
+    blankIndex=[''] * len(inst_hold_df)
+    inst_hold_df.index=blankIndex
+    st.write(inst_hold_df)
+
+    # Mutual Fund Investors
+    st.subheader("Mutual Fund Investors")
+    mf_hold_df = pd.DataFrame(ticker.mutualfund_holders) 
+    mf_hold_df['Date Reported'] = mf_hold_df['Date Reported'].dt.strftime('%Y/%m/%d')
+    blankIndex=[''] * len(mf_hold_df)
+    mf_hold_df.index=blankIndex
+    st.write(mf_hold_df)
+    
+    # Insider Investors
     st.subheader("Insider Investors")
-    st.write(stocks.insider_roster_holders) 
-    st.subheader("insidor")
-    st.write(stocks.sustainability)
+    inside_hold_df = pd.DataFrame(ticker.insider_roster_holders)
+    if 'URL' in inside_hold_df.columns:
+        del inside_hold_df['URL']
+    if 'Position Direct Date' in inside_hold_df.columns:
+        del inside_hold_df['Position Direct Date']
+    if 'Position Indirect Date' in inside_hold_df.columns:
+        del inside_hold_df['Position Indirect Date']
+    inside_hold_df['Latest Transaction Date'] = inside_hold_df['Latest Transaction Date'].dt.strftime('%Y/%m/%d')
+    blankIndex=[''] * len(inside_hold_df)
+    inside_hold_df.index=blankIndex
+    st.write(inside_hold_df) 
+    
      
 with recc:
-    stocks = yf.Ticker(stock)
-    recc = stocks.recommendations
-    st.write(recc)
+    # Experts Recommedation
+    ticker = yf.Ticker(stock)
+    recc_df = pd.DataFrame(ticker.recommendations)
+    labels = list(recc_df.head(1).columns[1:6])
+    sizes =list(recc_df.iloc[0])[1:]
+    if 'period' in recc_df.columns:
+        del recc_df['period']
+    blankIndex=[''] * len(recc_df)
+    recc_df.index=blankIndex
+    st.write(recc_df.head(1))
+    
+    #piechart
+    fig1, ax1 = plt.subplots()
+    ax1.pie(sizes, labels=labels, startangle=90,wedgeprops={'edgecolor':'black',"alpha": 0.7},textprops={'color':"w"})
+    ax1.axis('equal')
+    fig1.set_facecolor('#0f1117')
+    st.pyplot(fig1)
+    
+    # dic = {
+    # "Recommendation": labels,
+    # "No. of Experts": sizes
+    # }
+    # df = pd.DataFrame.from_dict(dic)
+    # sns.set(rc={'axes.facecolor':'#0f1117', 'figure.facecolor':'#0f1117'})
+    # plot = sns.barplot(x="Recommendation", y="No. of Experts", data=df)
+    # st.pyplot(plot.get_figure())
+    
+    
