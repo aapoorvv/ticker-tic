@@ -17,6 +17,15 @@ def subtract_years(dt, years):
     return dt
 dt = subtract_years(datetime.datetime.now(),1)
 
+# return -ve +ve
+def check_return(x):
+    if float(x)>0.0:
+        return '🟢'
+    elif float(x)<0.0:
+        return '🔴'
+    else:
+        return '🟡'
+
 stock = st.sidebar.text_input('Ticker',value="AAPL")
 ticker = yf.Ticker(stock)
 st.title(stock+' Stock Dashboard')
@@ -27,6 +36,7 @@ end_date = st.sidebar.date_input('End Date')
 
 
 data = yf.download(stock,start=start_date,end=end_date)
+data_1yr = yf.download(stock,end=datetime.datetime.now(),start=dt.date())
 
 line_chart,candlestick_chart= st.tabs(["Line Chart", "Candlestick Chart"])
 
@@ -57,25 +67,88 @@ with candlestick_chart:
 pricing_data,fundamental_data,news,ca,holding,recc= st.tabs(["Pricing Data", "Fundamentals","News" , "Corporate Actions","Shareholding", "Experts Recommedation"])
 
 with pricing_data:
-    st.header = ('Price Movements')
+    #data modify
     data_copy = data
     data_copy['% Change'] = data['Adj Close'] / data['Adj Close'].shift(1)-1
     data_copy.dropna(inplace = True)
+    
     data_df = pd.DataFrame(data_copy)
     data_df.reset_index(inplace=True)
     data_df['Date'] = data_df['Date'].dt.strftime('%Y/%m/%d')
+    
     blankIndex=[''] * len(data_df)
     data_df.index=blankIndex
     if '% Change' in data_df.columns:
         del data_df['% Change']
-    st.write(data_df.iloc[::-1])
+    
+    #data_1yr modify
+    data_1yr_copy = data_1yr
+    data_1yr['% Change'] = data_1yr_copy['Adj Close'] / data_1yr_copy['Adj Close'].shift(1)-1
+    data_1yr.dropna(inplace = True)
+    data_1yr = data_1yr.iloc[::-1]
+
+    len_yr = len(data_1yr_copy)
+    
+    st.subheader("Today's Performance")
+    
+    col1, col2, col3= st.columns(3) 
+    
+    cmp = data_1yr['Adj Close'][0]*1
+    col1.metric(label="CMP:", value=str("%.2f" % cmp))
+    
+    open = data_1yr['Open'][0]*1
+    col2.metric(label="Today\'s Open :", value=str("%.2f" % open))
+    
+    prev_close = data_1yr['Adj Close'][1]*1
+    col3.metric(label="Prev. Close:", value=str("%.2f" % prev_close))
+    
+    col4, col5, col6= st.columns(3) 
+    high = data_1yr['High'][0]*1
+    col4.metric(label="Today\'s High:", value=str("%.2f" % high))
+    
+    low = data_1yr['Low'][0]*1
+    col5.metric(label="Today\'s low:", value=str("%.2f" % low))
+    
+    vol = data_1yr['Volume'][0]*1
+    col6.metric(label="Volume:", value=str("%.0f" % vol))
+    
+    st.subheader("Returns")
+    
+    col1, col2, col3= st.columns(3) 
+    #Day retrun
+    day_return = data_1yr['% Change'][0]*100
+    dr = str("%.2f" % day_return+' %')
+    col1.metric(label="Day Return", value='', delta=dr) 
+    
+    #Last 1 Week Return
+    week_return = data_1yr['% Change'].head(5).sum()*100
+    wr = str("%.2f" % week_return+' %')
+    col2.metric(label="Last 1 Week Return", value='', delta=wr) 
+    
+    #Last 1 Month Return
+    m1_return = data_1yr['% Change'].head(int(len_yr/12)).sum()*100
+    m1r = str("%.2f" % m1_return+' %')
+    col3.metric(label="Last 1 Month Return", value='', delta=m1r) 
+    
+    col4, col5, col6 = st.columns(3) 
+    #Last 3 Months Return
+    m3_return = data_1yr['% Change'].head(int(len_yr/4)).sum()*100
+    m3r = str("%.2f" % m3_return+' %')
+    col4.metric(label="Last 3 Months Return", value='', delta=m3r) 
+    
+    #Last 6 Months Return
+    m6_return = data_1yr['% Change'].head(int(len_yr/2)).sum()*100
+    m6r = str("%.2f" % m6_return+' %')
+    col5.metric(label="Last 6 Months Return", value='', delta=m6r) 
     
     #Last 1 Year Return
-    annual_return = data_copy['% Change'].sum()*100
-    ar = str("%.2f" % annual_return)
-    st.write('Last 1 Year Return - ',ar,'%')
+    annual_return = (data_1yr['% Change']).sum()*100
+    ar = str("%.2f" % annual_return+' %')
+    col6.metric(label="Last 1 Year Return", value='', delta=ar) 
     
-    
+    #Pricing Data
+    st.subheader("Price Movements")
+    st.write(data_df.iloc[::-1])
     
     
 with fundamental_data:
