@@ -26,7 +26,7 @@ def check_return(x):
     else:
         return '🟡'
 
-stock = st.sidebar.text_input('Ticker',value="AAPL")
+stock = st.sidebar.text_input('Ticker',value="MSFT")
 ticker = yf.Ticker(stock)
 st.title(stock+' Stock Dashboard')
 
@@ -42,7 +42,9 @@ line_chart,candlestick_chart= st.tabs(["Line Chart", "Candlestick Chart"])
 
 # Line chart
 with line_chart:
-    fig = px.line(data, x = data.index, y = data['Adj Close'], title = stock.upper())
+    print(data)
+    adjClose = data['Adj Close'].to_numpy().flatten().tolist()
+    fig = px.line(data, x = data.index, y = adjClose, title = stock.upper())
     st.plotly_chart(fig)    
 
 # Candle Stick chart
@@ -92,24 +94,24 @@ with pricing_data:
     st.subheader("Today's Performance")
     
     col1, col2, col3= st.columns(3) 
-    
-    cmp = data_1yr['Adj Close'][0]*1
+    print(data_1yr['Adj Close'])
+    cmp = data_1yr['Adj Close'].to_numpy().flatten().tolist()[0]*1
     col1.metric(label="CMP:", value=str("%.2f" % cmp))
     
-    open = data_1yr['Open'][0]*1
+    open = data_1yr['Open'].to_numpy().flatten().tolist()[0]*1
     col2.metric(label="Today\'s Open :", value=str("%.2f" % open))
     
-    prev_close = data_1yr['Adj Close'][1]*1
+    prev_close = data_1yr['Adj Close'].to_numpy().flatten().tolist()[1]*1
     col3.metric(label="Prev. Close:", value=str("%.2f" % prev_close))
     
     col4, col5, col6= st.columns(3) 
-    high = data_1yr['High'][0]*1
+    high = data_1yr['High'].to_numpy().flatten().tolist()[0]*1
     col4.metric(label="Today\'s High:", value=str("%.2f" % high))
     
-    low = data_1yr['Low'][0]*1
+    low = data_1yr['Low'].to_numpy().flatten().tolist()[0]*1
     col5.metric(label="Today\'s low:", value=str("%.2f" % low))
     
-    vol = data_1yr['Volume'][0]*1
+    vol = data_1yr['Volume'].to_numpy().flatten().tolist()[0]*1
     col6.metric(label="Volume:", value=str("%.0f" % vol))
     
     st.subheader("Returns")
